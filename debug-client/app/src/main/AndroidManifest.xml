@@ -1,0 +1,21 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!-- Defined by Buckt; granted only if this app is signed with Buckt's key. -->
+  <uses-permission android:name="com.ny0t.kitto.permission.AGENT_TOOLS" />
+
+  <!-- Android 11+ package visibility: let us see apps that offer agent tools. -->
+  <queries>
+    <intent>
+      <action android:name="com.ny0t.kitto.action.AGENT_TOOLS" />
+    </intent>
+  </queries>
+
+  <application android:label="Kitto Debug" android:allowBackup="false">
+    <activity android:name=".MainActivity" android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>

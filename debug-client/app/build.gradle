@@ -1,0 +1,55 @@
+plugins {
+  id 'com.android.application'
+  id 'org.jetbrains.kotlin.android'
+}
+
+// Buckt's signing key, from keystore.properties (local only, gitignored).
+def ks = new Properties()
+def ksFile = rootProject.file('keystore.properties')
+if (ksFile.exists()) ksFile.withInputStream { ks.load(it) }
+
+android {
+  namespace 'com.ny0t.kitto.debugclient'
+  compileSdk 36
+
+  defaultConfig {
+    applicationId 'com.ny0t.kitto.debugclient'
+    minSdk 24
+    targetSdk 36
+    versionCode 1
+    versionName '0.1'
+  }
+
+  buildFeatures { aidl true }
+
+  signingConfigs {
+    bucktKey {
+      storeFile ks['storeFile'] ? file(ks['storeFile']) : null
+      storePassword ks['storePassword']
+      keyAlias ks['keyAlias']
+      keyPassword ks['keyPassword']
+    }
+  }
+
+  buildTypes {
+    // Signed with the standard debug key: Buckt must REFUSE this one (negative test).
+    debug {
+      applicationIdSuffix '.otherkey'
+      versionNameSuffix '-otherkey'
+    }
+    // Signed with Buckt's key: Buckt must ANSWER this one.
+    bucktKey {
+      initWith debug
+      applicationIdSuffix ''
+      versionNameSuffix '-bucktkey'
+      signingConfig signingConfigs.bucktKey
+      matchingFallbacks = ['debug']
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+  kotlinOptions { jvmTarget = '17' }
+}
