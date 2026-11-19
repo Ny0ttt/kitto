@@ -1,0 +1,26 @@
+# Kitto repo — applies to every project inside (debug-client, kitto-app, later ones)
+
+# IDE (Android Studio / IntelliJ settings, per machine)
+.idea/
+*.iml
+
+# Gradle / Kotlin build output
+.gradle/
+.kotlin/
+build/
+.cxx/
+.externalNativeBuild/
+captures/
+
+# Built apps
+*.apk
+*.aab
+
+# Secrets — never commit
+local.properties
+keystore.properties
+*.jks
+*.keystore
+
+# OS
+.DS_Store
