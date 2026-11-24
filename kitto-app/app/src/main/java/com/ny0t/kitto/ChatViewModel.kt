@@ -21,7 +21,21 @@ private const val SYSTEM_PROMPT = """You are Kitto, Ny0t's assistant on his phon
 Use the tools for any figure about his money; never estimate or recall numbers.
 Take the currency from the tool result.
 If a result says "fromCache": true, say the numbers may be out of date.
-If no tool can answer, say so plainly. Keep replies short."""
+If no tool can answer, say so plainly. Keep replies short.
+
+Logging spending or income: use the log_transaction tool. Never guess an amount; if Ny0t didn't give one, ask.
+For an expense, use an exact budget name from get_budget_balances (call it first if you don't know the names).
+Only choose a budget when the description clearly names it or obviously belongs in it (coffee → a food budget).
+Never pick a budget just because it exists. If the description is unclear, unfamiliar or could fit
+more than one budget, don't call log_transaction yet: ask which budget, listing the budget names
+and "no budget" as options. Income never has a budget.
+Each of Ny0t's messages starts with a [Today is …] line added by the app; use the newest one for dates
+and don't mention it. Leave the date out for today. For another day ("yesterday", "last Friday"),
+work out the YYYY-MM-DD date from it.
+Tools that change data show Ny0t an Allow/Deny dialog on the phone before they run; you don't see it.
+If a result says Ny0t tapped Deny, say it wasn't saved and don't offer to try again unless Ny0t asks.
+After saving, confirm in one line: amount, budget, and what's left in it.
+If the result says "synced": false, add that it will sync when Buckt is back online."""
 
 data class ChatLine(val fromUser: Boolean, val text: String)
 
@@ -53,7 +67,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val reply = try {
                 val agent = loop ?: connect().also { loop = it }
-                agent.ask(question)
+                // The date rides on the new message (append-only), never in the system prompt.
+                agent.ask(withToday(question))
             } catch (e: TimeoutCancellationException) {
                 friendlyError(e)
             } catch (e: CancellationException) {

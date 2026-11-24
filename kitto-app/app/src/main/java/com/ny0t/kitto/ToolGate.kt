@@ -2,7 +2,10 @@ package com.ny0t.kitto
 
 import com.ny0t.kitto.protocol.ToolSpec
 
-const val DECLINED_BY_USER = "The user declined this action."
+// Claude never sees the Allow/Deny dialog, so the result has to say what happened (a bare "declined"
+// contradicted the chat in the M3 device test and Claude offered to retry).
+const val DECLINED_BY_USER =
+    "Ny0t tapped Deny on the confirmation dialog, so this action was not run and nothing was changed."
 
 /** What the confirmation dialog shows. */
 data class GateRequest(val appLabel: String, val toolName: String, val argsJson: String)

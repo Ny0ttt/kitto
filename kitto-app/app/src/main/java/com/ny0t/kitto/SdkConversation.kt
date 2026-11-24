@@ -24,6 +24,11 @@ const val CLAUDE_MODEL = "claude-haiku-5-5"
  */
 class SdkConversation(
     private val client: AnthropicClient,
+    /**
+     * Must stay byte-identical for the whole conversation: Haiku 5.5's thinking blocks are sealed to the
+     * system prompt, tools and earlier messages, and a changed prefix makes the API reject every replayed
+     * block (400 "bound to a different conversation"). Anything that changes goes in a new user message.
+     */
     private val system: String,
     private val tools: List<ToolUnion>,
 ) : Conversation {
@@ -106,7 +111,7 @@ fun buildToolUnions(entries: List<Pair<String, ToolSpec>>): List<ToolUnion> =
     }
 
 /** Plain Kotlin Maps/Lists from org.json, so the SDK can take them as JsonValue. */
-private fun jsonToKotlin(v: Any?): Any? = when (v) {
+internal fun jsonToKotlin(v: Any?): Any? = when (v) {
     is JSONObject -> buildMap {
         val keys = v.keys()
         while (keys.hasNext()) {

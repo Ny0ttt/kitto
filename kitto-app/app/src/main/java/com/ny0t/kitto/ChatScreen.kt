@@ -82,7 +82,7 @@ fun ChatScreen(vm: ChatViewModel, modifier: Modifier = Modifier) {
         AlertDialog(
             onDismissRequest = { vm.answerGate(false) },
             title = { Text("Allow this action?") },
-            text = { Text("Kitto wants to ${request.toolName} in ${request.appLabel}.\n\n${request.argsJson}") },
+            text = { Text(gateText(request)) },
             confirmButton = { TextButton(onClick = { vm.answerGate(true) }) { Text("Allow") } },
             dismissButton = { TextButton(onClick = { vm.answerGate(false) }) { Text("Deny") } },
         )
