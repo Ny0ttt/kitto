@@ -24,4 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Kitto"
 include(":app")
- 
+include(":protocol")

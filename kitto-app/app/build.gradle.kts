@@ -5,6 +5,11 @@ val localProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
+// Buckt's signing key, from keystore.properties (gitignored). Buckt only answers apps signed with it.
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
 
 plugins {
     alias(libs.plugins.android.application)
@@ -30,8 +35,21 @@ android {
         buildConfigField("String", "ANTHROPIC_API_KEY","\"${localProps.getProperty("ANTHROPIC_API_KEY", "")}\"")
     }
 
+    signingConfigs {
+        create("bucktKey") {
+            storeFile = keystoreProps.getProperty("storeFile")?.let { file(it) }
+            storePassword = keystoreProps.getProperty("storePassword")
+            keyAlias = keystoreProps.getProperty("keyAlias")
+            keyPassword = keystoreProps.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("bucktKey")
+        }
         release {
+            signingConfig = signingConfigs.getByName("bucktKey")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -51,6 +69,7 @@ android {
 
 dependencies {
     implementation(libs.anthropic.java)
+    implementation(project(":protocol"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

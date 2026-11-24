@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.ny0t.protocol"
+    namespace = "com.ny0t.kitto.protocol"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -15,6 +15,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+    }
+
+    buildFeatures {     
+        aidl = true  
     }
 
     buildTypes {

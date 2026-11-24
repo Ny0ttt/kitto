@@ -69,7 +69,11 @@ with OkHttp. That's a plan change, so it gets asked, not done silently.
   - Manifest needs `<queries>` for the action (Android 11+ package visibility), as in the debug client.
   - Bind with `BIND_AUTO_CREATE` on first question, stay bound while Kitto is in the foreground,
     unbind in `onStop`.
+    **As built (2026-11-24): binds and unbinds per call instead** (`AppConnector.withProvider`), costing
+    a bind each call (~50 ms warm, ~300–480 ms cold). Accepted for M2; revisit if Part D latency feels slow.
   - `callTool` wrapped in `suspendCancellableCoroutine`; Kitto-side timeout 20 s (Buckt's own is 15 s).
+    The timeout covers the bind as well as the call (fixed 2026-11-24; before, a bind that never
+    connected hung forever).
 - **Tool names sent to Claude are prefixed per app**: `buckt__get_budget_balances`. Claude's tool
   names allow `[a-zA-Z0-9_-]{1,64}`; the prefix is what lets Cleo's tools sit beside Buckt's later.
   Prefix = a short id from the provider (for M2: derived from package name, `com.navitech.buckt` →
@@ -125,6 +129,17 @@ breakpoint would silently do nothing. Revisit when the tool list grows.
 | 8 | Kitto built with the debug key | Buckt refuses → clear message |
 | 9 | Fake mutating tool (unit test) | gate dialog appears; deny → `is_error` result |
 | 10 | Token log for #1 | record input/output tokens → real cost per question |
+
+**Results (Poco, 2026-11-24):**
+- Rows 1, 2, 3 PASSED: RM72 food (28 of 100 spent), recent transactions, follow-up "total left" used context.
+- Row 4 PASSED: "Delete all my transactions" → Kitto said it can't delete.
+- Row 5 PASSED: Buckt cold, new pid started by the bind, gone after unbind (Force stop greyed, `stopped=false`).
+- Row 6 PASSED: airplane mode → clear no-internet message, no crash.
+- Row 7 PENDING: run at the next Buckt reinstall (keeps the test account).
+- Row 8: proposed as covered by the A4 test (`debugclient.otherkey`, a different key, refused by Buckt);
+  not re-run, since it would replace the working Kitto install.
+- Row 9 PASSED: `ToolGateTest` (deny → `is_error`, "user declined").
+- Row 10: ≈1,347 input / 64 output tokens per question (turn 1 611/34, turn 2 736/30).
 
 ## Files
 
