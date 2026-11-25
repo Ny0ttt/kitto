@@ -63,11 +63,28 @@ and calls `onShow()` on a new session at each long-press.
 - A4. Fallback trigger owned by Kitto: **Quick Settings tile** (`TileService`, opens `AssistActivity`).
   Works with no system setting and whoever the assistant is.
 
-### Part B — Streaming replies
-- B1. `SdkConversation`: `createStreaming` + `MessageAccumulator`; pass text deltas to a callback;
-  return `accumulator.message()` as today. Close the stream on cancel.
-- B2. `ChatViewModel`: the assistant bubble grows as text arrives; tool-call turns unchanged.
-- B3. Same in the main app chat (one code path).
+### Part B — Streaming replies (widened 2026-11-26) — DONE in the main app (`36f752a`)
+**Why widened:** streaming alone only shortens the *last* Claude call. M3 timing for a read question
+was 4.8 s = Claude turn 1 (1.4 s, picks a tool, no text) → tool (1.4 s) → Claude turn 2 (1.9 s, answer).
+Streaming moves the first answer text earlier, but the first ~2.8 s stays silent and the total time
+doesn't change. Spoken replies wait for the full reply (decision 3), so streaming doesn't speed up
+voice. What helps the *feel* during the silent part is the status line. It already existed
+("thinking…" → "checking Buckt…" while the tool runs); the stream now sets "checking <App>…" as soon
+as the `tool_use` block starts. Real speed-ups (prompt caching, warm apps, fewer round trips) stay in M6.
+- B1. `SdkConversation`: `createStreaming` + `MessageAccumulator`; reports a `StreamUpdate` per event:
+  `ToolStarted(claudeName)` from `content_block_start` with a `tool_use` block, `Text(piece)` from text
+  deltas. Returns `accumulator.message()` as before, so `AgentLoop` and the history are unchanged.
+  Stream closed on error/cancel (`use` + `ensureActive`). ✅
+- B2. `ChatViewModel`: updates are applied on the main thread in order. `Text` → a reply bubble
+  appears and grows, status clears. `ToolStarted` → status "checking <App>…" (app label from the
+  routed tool), and any text written before the tool call ("Let me check…") is dropped. At the end
+  the bubble is replaced with the final reply, so errors / give-up messages still show. ✅
+- B3. Same code path in the assistant sheet → comes with the sheet chat (next).
+
+**Part B result (2026-11-26 ~07:38, Poco, main app):** Ny0t: "yep, it works". Answers type in, no
+crash, 30 unit tests pass. Logcat: 1st question tool + answer turn 5.2 s (cold bind after install),
+2nd 1.4 s (warm). Replies were short (25–58 output tokens), so streaming shows most on longer answers.
+The log has no send timestamp yet, so full press-to-answer time isn't measured.
 
 ### Part C — Voice input
 - C1. `RECORD_AUDIO` permission (asked the first time the mic is used).

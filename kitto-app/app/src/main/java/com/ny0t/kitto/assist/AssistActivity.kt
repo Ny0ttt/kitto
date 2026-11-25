@@ -5,10 +5,12 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -25,14 +27,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.ny0t.kitto.ChatScreen
+import com.ny0t.kitto.ChatViewModel
 import com.ny0t.kitto.ui.theme.KittoTheme
 
 /**
  * The assistant sheet: a card at the bottom over whatever app is open. Tap outside to close.
- * Part A = placeholder only ("Kitto here" + how long it took to appear). Chat, voice, and speech come
- * in Parts B–D.
+ * Holds the same chat as the main app (streaming, gate dialog). Voice and speech come in Parts C–D.
  */
 class AssistActivity : ComponentActivity() {
+
+    // One ViewModel per sheet: each long-press starts a new conversation (M5 decision 5),
+    // separate from the main app's chat.
+    private val chat: ChatViewModel by viewModels()
 
     // State, so the card redraws once the time is known.
     private var openMs by mutableStateOf<Long?>(null)
@@ -43,7 +50,7 @@ class AssistActivity : ComponentActivity() {
         val shownAt = intent.getLongExtra(EXTRA_SHOWN_AT, 0L)
         setContent {
             KittoTheme {
-                AssistSheet(source = source, openMs = { openMs }, onClose = { finish() })
+                AssistSheet(chat = chat, source = source, openMs = { openMs }, onClose = { finish() })
             }
         }
         window.decorView.post {
@@ -60,7 +67,7 @@ class AssistActivity : ComponentActivity() {
 }
 
 @Composable
-private fun AssistSheet(source: String, openMs: () -> Long?, onClose: () -> Unit) {
+private fun AssistSheet(chat: ChatViewModel, source: String, openMs: () -> Long?, onClose: () -> Unit) {
     val noRipple = remember { MutableInteractionSource() }
     // Full-screen see-through layer: a tap anywhere outside the card closes the sheet.
     Box(
@@ -73,16 +80,19 @@ private fun AssistSheet(source: String, openMs: () -> Long?, onClose: () -> Unit
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             modifier = Modifier
                 .fillMaxWidth()
+                // The chat list needs a bounded height to scroll inside the card.
+                .fillMaxHeight(0.6f)
                 // Swallow taps on the card itself so they don't close the sheet.
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
         ) {
-            Column(Modifier.padding(24.dp).navigationBarsPadding()) {
-                Text("Kitto here", style = MaterialTheme.typography.headlineSmall)
+            Column(Modifier.padding(top = 16.dp).navigationBarsPadding()) {
                 Text(
-                    "Opened from: $source" + (openMs()?.let { " · $it ms" } ?: ""),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 8.dp),
+                    "Kitto · $source" + (openMs()?.let { " · $it ms" } ?: ""),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
+                ChatScreen(vm = chat)
             }
         }
     }
