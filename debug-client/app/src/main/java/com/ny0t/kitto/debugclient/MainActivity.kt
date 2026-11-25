@@ -28,6 +28,8 @@ class MainActivity : Activity() {
   private var tools: IAgentTools? = null
   private var bindStarted = 0L
   private var pending: Pair<String, String>? = null
+  // Which provider app to bind (adb extra "target"); read only before the first bind.
+  private var target = "com.navitech.buckt"
 
   private val conn = object : ServiceConnection {
     override fun onServiceConnected(name: ComponentName, binder: IBinder) {
@@ -67,14 +69,15 @@ class MainActivity : Activity() {
   private fun handleAdb(intent: Intent?) {
     val name = intent?.getStringExtra("call") ?: return
     val args = intent.getStringExtra("args") ?: "{}"
+    if (tools == null) intent.getStringExtra("target")?.let { target = it }
     if (tools != null) call(name, args) else { pending = name to args; bind() }
   }
 
   private fun bind() {
     val found = packageManager.queryIntentServices(Intent(action), 0)
     say("DISCOVER ${found.size} service(s): ${found.joinToString { it.serviceInfo.packageName }}")
-    val svc = found.firstOrNull { it.serviceInfo.packageName == "com.navitech.buckt" }?.serviceInfo
-      ?: return say("NO BUCKT SERVICE")
+    val svc = found.firstOrNull { it.serviceInfo.packageName == target }?.serviceInfo
+      ?: return say("NO SERVICE IN $target")
     bindStarted = SystemClock.elapsedRealtime()
     try {
       val ok = bindService(Intent(action).setClassName(svc.packageName, svc.name), conn, BIND_AUTO_CREATE)

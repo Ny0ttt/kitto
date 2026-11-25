@@ -1,6 +1,6 @@
 # Kitto Milestone 3 — `log_transaction` (first mutating tool)
 
-**Status:** decisions locked 2026-11-24 (Ny0t picked all four recommendations). Part A written + early device test passed 2026-11-24. Part B written 2026-11-24 (GateText.kt formatter, prompt, clearer DECLINED_BY_USER; 27 unit tests pass), Kitto installed 12:01. Next: device rows.
+**Status:** decisions locked 2026-11-24 (Ny0t picked all four recommendations). Part A written + early device test passed 2026-11-24. Parts A + B done and device-tested 2026-11-24 (30 Kitto unit tests). M3 DONE pending Ny0t's commits.
 
 ## Decisions (2026-11-24)
 1. Kitto picks the budget; asks only when two could fit.
@@ -135,7 +135,7 @@ PASSED, D (recent shows the lunch) PASSED.
 **Device results (Poco, 2026-11-24, Parts A + B):** row 1 PASSED (lunch, via Kitto tag) · row 2 PASSED
 (Deny: clean reply after B3 + prompt) · row 3 PASSED (income) · row 4 PASSED ("xxxd" → Kitto asks, budget names +
 "no budget") · row 5 PASSED (no amount → asks) · row 6 not run directly (BAD_ARGS path; Claude used exact names) ·
-row 7 skipped (offline hard to fake) · row 8 PENDING (debug client, Anyit0 via adb) · row 9 PASSED ("Food is over
+row 7 skipped (offline hard to fake) · row 8 PASSED (14:42: debug client, same key, valid args → `PERMISSION_DENIED Only Kitto may log transactions` in 358 ms, nothing saved; control `get_budget_balances` from it → OK) · row 9 PASSED ("Food is over
 budget" notification) · row 10 PASSED · extra: "yesterday" → saved on 23 Nov PASSED.
 **Timing (logcat, 12:55):** read question ≈ 4.8 s (Claude 1.4 s → Buckt warm ~1.4 s → Claude ~1.9 s); log question
 ≈ 3.9 s excluding the dialog (Claude 1.5 s, went straight to log_transaction → Buckt ~0.9 s → Claude ~1.5 s). First
