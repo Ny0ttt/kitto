@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Makes Kitto a choice under Settings → Assist & voice input → Assist app.
+     Android checks this file when it lists assistant apps: it must name a session service and a
+     recognition service, or Kitto is not offered. (M5 plan: kitto/plan/m5-assistant.md) -->
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.ny0t.kitto.assist.KittoSessionService"
+    android:recognitionService="com.ny0t.kitto.assist.KittoRecognitionService"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="false" />

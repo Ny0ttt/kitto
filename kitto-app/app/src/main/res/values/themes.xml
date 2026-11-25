@@ -2,4 +2,13 @@
 <resources>
 
     <style name="Theme.Kitto" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Assistant sheet: see-through window over whatever app is open, dimmed behind. -->
+    <style name="Theme.Kitto.Assist" parent="Theme.Kitto">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.InputMethod</item>
+    </style>
 </resources>

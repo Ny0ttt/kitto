@@ -34,6 +34,58 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- M5: Kitto as the phone's assistant (plan/m5-assistant.md). -->
+
+        <!-- Bound by the system while Kitto is the chosen assistant. Only the system may bind it
+             (BIND_VOICE_INTERACTION is a system-only permission). -->
+        <service
+            android:name=".assist.KittoVoiceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/kitto_voice" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+
+        <!-- Creates one session per long-press. -->
+        <service
+            android:name=".assist.KittoSessionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION" />
+
+        <!-- Required by kitto_voice.xml; Kitto itself uses Google's recognizer (decision 2). -->
+        <service
+            android:name=".assist.KittoRecognitionService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+            </intent-filter>
+        </service>
+
+        <!-- The sheet shown over other apps. Own task, hidden from Recents. -->
+        <activity
+            android:name=".assist.AssistActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity="com.ny0t.kitto.assist"
+            android:theme="@style/Theme.Kitto.Assist"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Fallback trigger: swipe down → tap "Kitto". Works whoever the assistant is. -->
+        <service
+            android:name=".assist.KittoTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_kitto"
+            android:label="Kitto"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

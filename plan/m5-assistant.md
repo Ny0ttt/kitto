@@ -1,6 +1,6 @@
 # M5 — Kitto as the phone's assistant
 
-**Status:** decisions locked 2026-11-25 (Ny0t agreed to all five). Next: Part A spike. Optional pre-check: set the Claude app as the assistant and see if MIUI's power-hold opens it.
+**Status:** decisions locked 2026-11-25. Pre-check done. **Part A DONE 2026-11-25 ~22:00 (GO)** — see "Part A result". Next: Part B (streaming).
 
 ## Goal
 Long-press (or the phone's assistant gesture) opens Kitto over whatever app is on screen. Ny0t speaks,
@@ -95,6 +95,32 @@ and calls `onShow()` on a new session at each long-press.
 | 9 | No network | Clear error, no crash |
 | 10 | Google voice typing in another app's keyboard after Kitto is assistant | Still works |
 | 11 | Switch assistant back to Google | Google works again |
+
+## Pre-check result (2026-11-25, Claude app as assistant)
+- Long-press Home → MIUI `launch Google Assist` → system **does** show the session of whichever app holds
+  the assistant role (Claude): AssistStructure built (screen content, 82 views), glow border
+  (`AssistDisclosure`) shown. So MIUI routes to the default assistant. ✅
+- Claude's session then started its overlay activity (`act=ASSIST … AppOnlyAssistantOverlay`) and MIUI
+  blocked it: `MIUILOG- Permission Denied Activity`. Result: glow, then nothing.
+- Cause: MIUI's own "start activity from background" permission. **Kitto's `startAssistantActivity()`
+  plan hits the same wall.** Two ways out:
+  1. MIUI app permission (Other permissions → "Display pop-up windows while running in the background"
+     / "Start in background") → allow for Kitto (one-time). Being tested with Claude.
+  2. Draw the UI inside the `VoiceInteractionSession` window itself (`onCreateContentView`), with no
+     activity start, so nothing for MIUI to block. Compose there needs the lifecycle/saved-state owners set by hand.
+- **Retest with option 1 → WORKS (18:50)**: Ny0t allowed Claude's background pop-up permission (MIUI app op
+  `10021`, now `allow`) → long-press Home → Claude's overlay `Displayed +677ms`, ~0.8 s from press to
+  screen. **Decision: keep `startAssistantActivity()` + this MIUI permission for Kitto** (one-time; for
+  dev it can also be set with `adb shell appops set com.ny0t.kitto 10021 allow`). Kitto should spot the
+  block and point the user to the setting (an app can't grant it to itself).
+
+## Part A result (2026-11-25 ~22:00, Poco, Kitto as assistant + app op 10021 allowed)
+- Long-press Home → "Kitto here" sheet over the current app. Log: session shown 22:00:45.520 → session hidden +90 ms → sheet first frame **346 ms** after onShow.
+- `hide()` in `onShow` does NOT close the AssistActivity on MIUI → keep it (no onDestroy fallback needed).
+- Tap outside → sheet closes, back to the app underneath (Ny0t confirmed).
+- Quick Settings tile "Kitto" → sheet in **313 ms**.
+- `voice_recognition_service` stayed on Google after the role switch (test 10 risk cleared).
+- Verdict: **GO** — VoiceInteractionService + startAssistantActivity works on MIUI 14. Faster than the Claude app (~0.8 s).
 
 ## Risks
 - **MIUI gestures**: MIUI may send long-press power to its own assistant / Google only. Spike A3
