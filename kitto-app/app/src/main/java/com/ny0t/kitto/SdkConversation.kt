@@ -2,6 +2,7 @@ package com.ny0t.kitto
 
 import com.anthropic.client.AnthropicClient
 import com.anthropic.core.JsonValue
+import com.anthropic.helpers.MessageAccumulator
 import com.anthropic.models.messages.ContentBlockParam
 import com.anthropic.models.messages.Message
 import com.anthropic.models.messages.MessageCreateParams
@@ -12,11 +13,21 @@ import com.anthropic.models.messages.ToolResultBlockParam
 import com.anthropic.models.messages.ToolUnion
 import com.ny0t.kitto.protocol.ToolSpec
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
 const val CLAUDE_MODEL = "claude-haiku-5-5"
+
+/** What the screen hears while a reply is still arriving. */
+sealed interface StreamUpdate {
+    /** Claude started a tool call; [claudeName] is the prefixed tool name (e.g. buckt__get_budget_balances). */
+    data class ToolStarted(val claudeName: String) : StreamUpdate
+
+    /** A piece of reply text. Pieces from one turn join up into that turn's text. */
+    data class Text(val piece: String) : StreamUpdate
+}
 
 /**
  * Real [Conversation] backed by the Anthropic SDK. Keeps the history as SDK
@@ -31,6 +42,8 @@ class SdkConversation(
      */
     private val system: String,
     private val tools: List<ToolUnion>,
+    /** Called for each [StreamUpdate] as the reply arrives. Runs on a background thread. */
+    private val onUpdate: (StreamUpdate) -> Unit = {},
 ) : Conversation {
 
     private val history = mutableListOf<MessageParam>()
@@ -50,8 +63,26 @@ class SdkConversation(
             .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build())
             .messages(history.toList())
             .build()
-        // Blocking network call: keep it off the main thread.
-        val message = withContext(Dispatchers.IO) { client.messages().create(params) }
+        // Streaming network call: keep it off the main thread. The accumulator rebuilds the same
+        // Message that create() returned, so the loop and the history don't change.
+        val message = withContext(Dispatchers.IO) {
+            val accumulator = MessageAccumulator.create()
+            // use{} closes the stream even on error or cancel; ensureActive() stops at the next
+            // event once the screen is gone.
+            client.messages().createStreaming(params).use { stream ->
+                stream.stream().forEach { event ->
+                    ensureActive()
+                    accumulator.accumulate(event)
+                    event.contentBlockStart()
+                        .flatMap { it.contentBlock().toolUse() }
+                        .ifPresent { onUpdate(StreamUpdate.ToolStarted(it.name())) }
+                    event.contentBlockDelta()
+                        .flatMap { it.delta().text() }
+                        .ifPresent { onUpdate(StreamUpdate.Text(it.text())) }
+                }
+            }
+            accumulator.message()
+        }
         history += message.toParam()
         return message.toModelTurn()
     }

@@ -71,6 +71,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     private var gateAnswer: CompletableDeferred<Boolean>? = null
+    /** Index in [lines] of the reply bubble being streamed, or -1 when there is none. */
+    private var liveLine = -1
     private var loop: AgentLoop? = null
 
     private val client by lazy {
@@ -96,7 +98,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 Log.e("KittoLoop", "question failed", e)
                 friendlyError(e)
             }
-            lines += ChatLine(fromUser = false, text = reply)
+            // The streamed bubble gets the final text (it may be an error or a give-up message instead).
+            if (liveLine >= 0) lines[liveLine] = ChatLine(fromUser = false, text = reply)
+            else lines += ChatLine(fromUser = false, text = reply)
+            liveLine = -1
             status = null
             busy = false
         }
@@ -127,6 +132,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             client = client,
             system = SYSTEM_PROMPT,
             tools = buildToolUnions(routed.map { (name, tool) -> name to tool.spec }),
+            onUpdate = { update -> onStream(update, routed) },
         )
         val router = ToolRouter(routed, ToolGate(::askUser)) { provider, toolName, argsJson ->
             status = "checking ${provider.label}…"
@@ -137,6 +143,30 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         return AgentLoop(conversation, router::run) { Log.d("KittoLoop", it) }
+    }
+
+    /** Stream events arrive on a background thread; apply them on the main thread, in order. */
+    private fun onStream(update: StreamUpdate, routed: Map<String, RoutedTool<Provider>>) {
+        viewModelScope.launch {
+            when (update) {
+                is StreamUpdate.ToolStarted -> {
+                    // Text before a tool call ("Let me check…") isn't the answer: drop it.
+                    if (liveLine >= 0) {
+                        lines.removeAt(liveLine)
+                        liveLine = -1
+                    }
+                    status = "checking ${routed[update.claudeName]?.appLabel ?: "your apps"}…"
+                }
+                is StreamUpdate.Text -> {
+                    if (liveLine < 0) {
+                        lines += ChatLine(fromUser = false, text = "")
+                        liveLine = lines.lastIndex
+                    }
+                    lines[liveLine] = lines[liveLine].copy(text = lines[liveLine].text + update.piece)
+                    status = null
+                }
+            }
+        }
     }
 
     /** Shows the dialog and waits for Allow / Deny. */
