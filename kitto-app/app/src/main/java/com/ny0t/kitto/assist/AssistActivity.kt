@@ -33,7 +33,7 @@ import com.ny0t.kitto.ui.theme.KittoTheme
 
 /**
  * The assistant sheet: a card at the bottom over whatever app is open. Tap outside to close.
- * Holds the same chat as the main app (streaming, gate dialog). Voice and speech come in Parts C–D.
+ * Holds the same chat as the main app (streaming, gate dialog). Opens listening; spoken replies come in Part D.
  */
 class AssistActivity : ComponentActivity() {
 
@@ -92,7 +92,8 @@ private fun AssistSheet(chat: ChatViewModel, source: String, openMs: () -> Long?
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
-                ChatScreen(vm = chat)
+                // The sheet opens listening (Part C3); typing still works.
+                ChatScreen(vm = chat, listenOnStart = true)
             }
         }
     }

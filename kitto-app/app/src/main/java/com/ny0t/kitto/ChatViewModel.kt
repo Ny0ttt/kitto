@@ -71,6 +71,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     private var gateAnswer: CompletableDeferred<Boolean>? = null
+    /** Speaks replies to spoken questions (Part D). Shut down with the ViewModel, so closing the sheet stops it. */
+    private val speaker = Speaker(app)
+    val speaking: Boolean get() = speaker.speaking
+    /** Whether the question being answered was spoken: decides if the reply and the gate hint are spoken. */
+    private var spokenQuestion = false
+
     /** Index in [lines] of the reply bubble being streamed, or -1 when there is none. */
     private var liveLine = -1
     private var loop: AgentLoop? = null
@@ -79,9 +85,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         AnthropicOkHttpClient.builder().apiKey(BuildConfig.ANTHROPIC_API_KEY).build()
     }
 
-    fun send(text: String) {
+    fun send(text: String, spoken: Boolean = false) {
         val question = text.trim()
         if (question.isEmpty() || busy) return
+        speaker.stop()
+        spokenQuestion = spoken
         lines += ChatLine(fromUser = true, text = question)
         busy = true
         status = "thinking…"
@@ -104,7 +112,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             liveLine = -1
             status = null
             busy = false
+            // Spoken question → spoken answer (decision 3). Typed questions stay silent.
+            if (spoken) speaker.say(reply)
         }
+    }
+
+    fun stopSpeaking() = speaker.stop()
+
+    override fun onCleared() {
+        speaker.shutdown()
     }
 
     /** Called by the gate dialog's buttons. */
@@ -174,6 +190,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val answer = CompletableDeferred<Boolean>()
         gateAnswer = answer
         gateRequest = request
+        // Writes still need a tap, never a spoken "yes" (decision 4).
+        if (spokenQuestion) speaker.say("Tap Allow to save.")
         return try {
             answer.await()
         } finally {

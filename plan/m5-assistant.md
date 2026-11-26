@@ -86,17 +86,27 @@ crash, 30 unit tests pass. Logcat: 1st question tool + answer turn 5.2 s (cold b
 2nd 1.4 s (warm). Replies were short (25–58 output tokens), so streaming shows most on longer answers.
 The log has no send timestamp yet, so full press-to-answer time isn't measured.
 
-### Part C — Voice input
+### Part C — Voice input — WRITTEN 2026-11-26 ~08:00 (installed, not device-tested, uncommitted)
 - C1. `RECORD_AUDIO` permission (asked the first time the mic is used).
 - C2. `VoiceInput` helper around `SpeechRecognizer` (Google's component, partial results shown live,
   errors → short message, falls back to typing).
 - C3. Assistant sheet opens listening straight away; mic button in the main chat too.
 
-### Part D — Spoken replies + sheet polish
-- D1. `TextToSpeech` speaks the final reply when the question was spoken; stops when the sheet closes
-  or Ny0t taps it.
-- D2. Gate dialog inside the sheet; spoken hint "Tap Allow to save".
-- D3. Sheet: listening state, partial text, streaming answer, close on outside tap.
+### Part D — Spoken replies + sheet polish — WRITTEN 2026-11-26 (installed, not device-tested, uncommitted)
+**Voice (talk 2026-11-26):** Android's plain `TextToSpeech` API = the phone's system TTS engine, the same
+one TalkBack / Maps use (Settings → Accessibility → Text-to-speech output). It is NOT an
+AccessibilityService (that stays out of scope). The Poco has no explicit engine (`tts_default_synth`
+null), so the top installed engine runs, most likely Speech Services by Google; Kitto logs the engine.
+Free, offline once voices are downloaded, sounds like a navigation voice; Malay words in English
+sentences may sound off. Cloud voices (Google Cloud TTS, ElevenLabs) = later, with the M6 backend /
+Phase 2 terminals.
+- D1. `Speaker.kt` (`TextToSpeech`) speaks the final reply when the question was spoken; markdown
+  marks stripped first. Stops when the sheet closes (ViewModel cleared), when the mic starts, on a new
+  question, or when Ny0t taps the "speaking… tap to stop" status.
+- D2. Gate dialog inside the sheet (already shared via `ChatScreen`); for a spoken question Kitto says
+  "Tap Allow to save." Writes still need the tap (decision 4).
+- D3. Sheet: listening state, partial text, streaming answer, close on outside tap — already done in
+  B3/C; D adds the speaking state.
 
 ## Device tests
 | # | Test | Expect |
@@ -156,3 +166,12 @@ Kitto: `AndroidManifest.xml`, `res/xml/kitto_voice.xml`, `assist/KittoVoiceServi
 
 ## Done when
 Tests 1–11 pass or are noted on the Poco; Kitto unit tests green; Ny0t commits.
+
+### C+D device test — 2026-11-27 (~05:45 +08)
+Ny0t ran the 9-row C+D table: **all pass except row 3 (Malay spot name)**. "I cleaned singki dapur" was
+heard as "sinking the poo". Cause: `VoiceInput` sends no language extra, so the phone's default language
+(English) is used, and the Poco is Android 12 (SDK 31), so `EXTRA_BIASING_STRINGS` (API 33) can't be used
+to feed it the spot names. Proposed fix (awaiting Ny0t: now or later): (1) the prompt tells Claude that
+spoken text comes from speech recognition, may mangle Malay names, so match by sound against the real
+spot/budget names and confirm when unsure (writes still go through the gate); (2) quick A/B test of `ms-MY`
+as the recognizer language. Longer term: the Whisper benchmark with Ny0t's own Malay+English commands.

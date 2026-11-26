@@ -3,12 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Voice questions (M5 Part C). Asked the first time the mic is used. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <uses-permission android:name="com.ny0t.kitto.permission.AGENT_TOOLS" />
     
     <queries>
         <intent>
             <action android:name="com.ny0t.kitto.action.AGENT_TOOLS" />
+        </intent>
+        <!-- To find Google's speech recognizer by name (VoiceInput). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 
