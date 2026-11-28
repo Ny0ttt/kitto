@@ -18,11 +18,14 @@ class ToolGateTest {
         "buckt__log_transaction" to RoutedTool("buckt-handle", "Buckt", writeSpec),
     )
 
+    private val sentArgs = mutableListOf<String>()
+
     private fun router(userSays: Boolean, asked: MutableList<GateRequest>, called: MutableList<String>) =
         ToolRouter(
             tools,
             ToolGate { request -> asked += request; userSays },
-        ) { provider, toolName, _ -> called += "$provider:$toolName"; """{"ok":true}""" }
+            now = { 1_000L },
+        ) { provider, toolName, args -> called += "$provider:$toolName"; sentArgs += args; """{"ok":true}""" }
 
     @Test
     fun readOnlyToolSkipsTheGate() = runBlocking {
@@ -57,5 +60,49 @@ class ToolGateTest {
         val out = router(true, asked, called).run(ToolCall("t4", "cleo__start_timer", "{}"))
         assertTrue(out.isError)
         assertTrue(called.isEmpty())
+    }
+
+    // M6 C: the confirmation ticket
+
+    @Test
+    fun allowedWriteCarriesATicketForThisCall() = runBlocking {
+        router(true, mutableListOf(), mutableListOf())
+            .run(ToolCall("toolu_1", "buckt__log_transaction", """{"amount":5}"""))
+        assertEquals("""{"_kitto_confirm":{"id":"toolu_1","at":1000},"amount":5}""", sentArgs.single())
+    }
+
+    @Test
+    fun dialogShowsTheArgumentsWithoutTheTicket() = runBlocking {
+        val asked = mutableListOf<GateRequest>()
+        router(true, asked, mutableListOf()).run(ToolCall("toolu_1", "buckt__log_transaction", """{"amount":5}"""))
+        assertEquals("""{"amount":5}""", asked.single().argsJson)
+    }
+
+    @Test
+    fun readToolGetsNoTicket() = runBlocking {
+        router(true, mutableListOf(), mutableListOf()).run(ToolCall("toolu_2", "buckt__get_budget_balances", "{}"))
+        assertEquals("{}", sentArgs.single())
+    }
+
+    @Test
+    fun deniedWriteSendsNothing() = runBlocking {
+        router(false, mutableListOf(), mutableListOf()).run(ToolCall("toolu_3", "buckt__log_transaction", "{}"))
+        assertTrue(sentArgs.isEmpty())
+    }
+
+    @Test
+    fun ticketInEmptyArgs() {
+        assertEquals("""{"_kitto_confirm":{"id":"t","at":7}}""", withTicket(" { } ", "t", 7))
+    }
+
+    @Test
+    fun ticketIdIsEscaped() {
+        assertEquals("""{"_kitto_confirm":{"id":"a\"b\\c","at":7}}""", withTicket("{}", "a\"b\\c", 7))
+    }
+
+    @Test
+    fun nonObjectArgsAreLeftAlone() {
+        assertEquals("[1]", withTicket("[1]", "t", 7))
+        assertEquals("", withTicket("", "t", 7))
     }
 }
