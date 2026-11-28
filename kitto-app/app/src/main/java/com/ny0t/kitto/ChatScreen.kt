@@ -1,6 +1,9 @@
 package com.ny0t.kitto
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -45,6 +49,11 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun ChatScreen(vm: ChatViewModel, modifier: Modifier = Modifier, listenOnStart: Boolean = false) {
+    // M6 B6: no chat (and no listening) until the person has signed in with Google.
+    if (!vm.signedIn) {
+        SignInPanel(vm, modifier)
+        return
+    }
     var input by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
 
@@ -148,4 +157,37 @@ private fun ChatBubble(line: ChatLine) {
             Text(line.text, modifier = Modifier.padding(12.dp))
         }
     }
+}
+
+/** First-open screen: Kitto asks the backend as this Google account, which must be on the allowlist. */
+@Composable
+private fun SignInPanel(vm: ChatViewModel, modifier: Modifier = Modifier) {
+    val activity = LocalContext.current.findActivity()
+    Column(
+        modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("Sign in to use Kitto", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Kitto uses your Google account to know it's you. Only accounts Ny0t has added can ask questions.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(16.dp))
+        Button(enabled = !vm.signingIn && activity != null, onClick = { activity?.let(vm::signIn) }) {
+            Text(if (vm.signingIn) "Signing in…" else "Sign in with Google")
+        }
+        vm.signInError?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

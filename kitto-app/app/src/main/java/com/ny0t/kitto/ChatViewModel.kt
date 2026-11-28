@@ -1,5 +1,6 @@
 package com.ny0t.kitto
 
+import android.app.Activity
 import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -8,9 +9,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.anthropic.client.okhttp.AnthropicOkHttpClient
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.anthropic.errors.AnthropicIoException
 import com.anthropic.errors.AnthropicServiceException
+import com.anthropic.errors.PermissionDeniedException
+import com.anthropic.errors.RateLimitException
 import com.anthropic.errors.UnauthorizedException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -69,6 +72,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var gateRequest by mutableStateOf<GateRequest?>(null)
         private set
+    /** Kitto needs a Google sign-in before it can ask the backend anything (M6 B6). */
+    var signedIn by mutableStateOf(Backend.isSignedIn())
+        private set
+    var signInError by mutableStateOf<String?>(null)
+        private set
+    var signingIn by mutableStateOf(false)
+        private set
 
     private var gateAnswer: CompletableDeferred<Boolean>? = null
     /** Speaks replies to spoken questions (Part D). Shut down with the ViewModel, so closing the sheet stops it. */
@@ -81,8 +91,28 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private var liveLine = -1
     private var loop: AgentLoop? = null
 
-    private val client by lazy {
-        AnthropicOkHttpClient.builder().apiKey(BuildConfig.ANTHROPIC_API_KEY).build()
+    // Calls Kitto's backend, not Claude directly; the API key never ships in the app (M6 B6).
+    private val client by lazy { Backend.client() }
+
+    fun signIn(activity: Activity) {
+        if (signingIn) return
+        signingIn = true
+        signInError = null
+        viewModelScope.launch {
+            try {
+                Backend.signIn(activity)
+                signedIn = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: GetCredentialCancellationException) {
+                // Closed the account picker: nothing to report.
+            } catch (e: Exception) {
+                Log.e("KittoAuth", "sign-in failed", e)
+                signInError = "Sign-in didn't work: ${e.message ?: e::class.simpleName}"
+            } finally {
+                signingIn = false
+            }
+        }
     }
 
     fun send(text: String, spoken: Boolean = false) {
@@ -104,6 +134,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 throw e // ViewModel cleared: nothing left to show
             } catch (e: Exception) {
                 Log.e("KittoLoop", "question failed", e)
+                if (e is NotSignedInException) signedIn = false
                 friendlyError(e)
             }
             // The streamed bubble gets the final text (it may be an error or a give-up message instead).
@@ -205,9 +236,25 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         is SecurityException -> "Buckt refused the connection (signing key doesn't match)."
         is TimeoutCancellationException -> "Buckt timed out."
         is ToolException -> "${e.code}: ${e.message}"
-        is UnauthorizedException -> "API key missing or wrong (401)."
-        is AnthropicServiceException -> "Claude API error ${e.statusCode()}: ${e.message}"
+        is NotSignedInException -> "Please sign in again."
+        is AppCheckException -> "Kitto couldn't prove it's the real app (App Check). Try again in a moment."
+        // The backend's refusals start with a code (backend/functions/src/checks.ts, usage.ts).
+        is AnthropicServiceException -> backendError(e)
         is AnthropicIoException, is java.io.IOException -> "No internet connection."
         else -> "Something went wrong: ${e::class.simpleName}: ${e.message}"
+    }
+
+    private fun backendError(e: AnthropicServiceException): String {
+        val text = e.message.orEmpty()
+        return when {
+            "LIMIT_REACHED" in text -> "You've used all your questions for today. They reset at midnight."
+            "RATE_LIMITED" in text -> "That's a lot of requests at once. Wait a moment and try again."
+            "NOT_ALLOWED" in text -> "This Google account isn't on Kitto's list yet. Ask Ny0t to add you."
+            "APP_CHECK_FAILED" in text -> "Kitto couldn't prove it's the real app (App Check)."
+            e is UnauthorizedException -> "Your sign-in has expired. Please sign in again."
+            e is PermissionDeniedException -> "Kitto's backend said no (403)."
+            e is RateLimitException -> "Claude is busy right now. Try again in a moment."
+            else -> "Claude error ${e.statusCode()}: ${e.message}"
+        }
     }
 }

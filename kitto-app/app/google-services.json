@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "710720455044",
+    "project_id": "navitech-494514",
+    "storage_bucket": "navitech-494514.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:710720455044:android:3378a23855bfcfec0d1dd1",
+        "android_client_info": {
+          "package_name": "com.ny0t.kitto"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "710720455044-4ru34suunohcduf2phntni6p19e0fmon.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ny0t.kitto",
+            "certificate_hash": "f42a86d8745fee53145142d8651ca35eaa5330f0"
+          }
+        },
+        {
+          "client_id": "710720455044-t2ek340g5qva49flbcngeu9dclmfjac9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDz0eFpOa1KUy7_zs6BotAfaLLV2Z20PLc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "710720455044-t2ek340g5qva49flbcngeu9dclmfjac9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

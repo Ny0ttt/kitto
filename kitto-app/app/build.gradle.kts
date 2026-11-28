@@ -1,10 +1,5 @@
 import java.util.Properties
 
-val localProps = Properties().apply {
-    val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
-}
-
 // Buckt's signing key, from keystore.properties (gitignored). Buckt only answers apps signed with it.
 val keystoreProps = Properties().apply {
     val f = rootProject.file("keystore.properties")
@@ -14,6 +9,8 @@ val keystoreProps = Properties().apply {
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    // Reads app/google-services.json (Firebase project navitech-494514, M6 B1).
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -32,7 +29,13 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "ANTHROPIC_API_KEY","\"${localProps.getProperty("ANTHROPIC_API_KEY", "")}\"")
+        // M6 B6: no Claude API key in the app any more. Kitto calls its own backend (Cloud Function
+        // `claude`), which holds the key and checks sign-in, App Check, the allowlist and limits.
+        buildConfigField("String", "BACKEND_URL", "\"https://us-central1-navitech-494514.cloudfunctions.net/claude\"")
+        // While Kitto is sideloaded (not from Play), Play Integrity can't vouch for it, so App Check uses the
+        // debug provider: each phone's debug token must be registered in the Firebase console. Set false once
+        // Kitto ships through Play (Part E).
+        buildConfigField("boolean", "APP_CHECK_DEBUG", "true")
     }
 
     signingConfigs {
@@ -78,6 +81,14 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.appcheck.playintegrity)
+    // Not debug-only: sideloaded release builds use it too (see APP_CHECK_DEBUG).
+    implementation(libs.firebase.appcheck.debug)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
