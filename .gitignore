@@ -24,3 +24,4 @@ keystore.properties
 
 # OS
 .DS_Store
+/plan
